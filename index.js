@@ -273,6 +273,86 @@ app.get("/api/screenshots/:id", async (req, res) => {
 
 
 // ======================================================
+// DELETE ACTIVITY + SCREENSHOT
+// ======================================================
+
+app.delete("/api/logs/:id", async (req, res) => {
+  try {
+    const logId = req.params.id;
+
+    console.log("DELETE request received:", logId);
+
+    if (!ObjectId.isValid(logId)) {
+      return res.status(400).json({
+        error: "Invalid activity ID",
+      });
+    }
+
+    const activity = await Log.findById(logId);
+
+    if (!activity) {
+      return res.status(404).json({
+        error: "Activity not found",
+      });
+    }
+
+    console.log(
+      "Found activity:",
+      activity.window_title
+    );
+
+    // Delete GridFS screenshot
+    if (activity.screenshot_id) {
+      const db = mongoose.connection.db;
+      const bucket = new GridFSBucket(db, {
+        bucketName: "fs",
+      });
+
+      try {
+        await bucket.delete(
+          new ObjectId(activity.screenshot_id)
+        );
+
+        console.log(
+          "Screenshot deleted:",
+          activity.screenshot_id.toString()
+        );
+      } catch (err) {
+        console.warn(
+          "Screenshot deletion failed:",
+          err.message
+        );
+      }
+    }
+
+    // Delete activity
+    await Log.deleteOne({
+      _id: activity._id,
+    });
+
+    console.log(
+      "Activity deleted:",
+      logId
+    );
+
+    return res.status(200).json({
+      success: true,
+      deleted_id: logId,
+    });
+  } catch (err) {
+    console.error(
+      "DELETE /api/logs/:id error:",
+      err
+    );
+
+    return res.status(500).json({
+      error: err.message || "Failed to delete activity",
+    });
+  }
+});
+
+
+// ======================================================
 // Health Check
 // ======================================================
 
